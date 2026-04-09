@@ -5,7 +5,7 @@ c Check and fix triangular mesh: orientation, degeneracy, validity.
 c Industrial-grade validation for FEM pipelines.
 c
 c Authors: Bruno Zilli & DeepSeek
-c Licence: MIT
+c License: MIT
 c     Copyright (c) 2025 Bruno Zilli & DeepSeek
 c     
 c     Permission is hereby granted, free of charge, to any person obtaining
