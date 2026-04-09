@@ -6,6 +6,26 @@ c Industrial-grade validation for FEM pipelines.
 c
 c Authors: Bruno Zilli & DeepSeek
 c Licence: MIT
+c     Copyright (c) 2025 Bruno Zilli & DeepSeek
+c     
+c     Permission is hereby granted, free of charge, to any person obtaining
+c     a copy of this software and associated documentation files (the
+c     "Software"), to deal in the Software without restriction, including
+c     without limitation the rights to use, copy, modify, merge, publish,
+c     distribute, sublicense, and/or sell copies of the Software, and to
+c     permit persons to whom the Software is furnished to do so, subject to
+c     the following conditions:
+c     
+c     The above copyright notice and this permission notice shall be
+c     included in all copies or substantial portions of the Software.
+c     
+c     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+c     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+c     MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+c     IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+c     CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+c     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+c     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 c=======================================================================
 
       subroutine check_and_fix_mesh(
