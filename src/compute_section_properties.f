@@ -5,7 +5,7 @@ c Compute cross-section properties (area, centroid, moments of inertia)
 c using a triangular mesh. Uses exact analytical formulae for triangles.
 c
 c Authors: Bruno Zilli & DeepSeek
-c Licence: MIT
+c License: MIT
 c     Copyright (c) 2025 Bruno Zilli & DeepSeek
 c     
 c     Permission is hereby granted, free of charge, to any person obtaining
