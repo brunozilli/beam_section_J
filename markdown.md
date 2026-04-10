@@ -1,5 +1,5 @@
 markdown
-# Shear Centre and Constitutive Matrix D(6,6) Implementation
+# Torsional Constant J - Finite Element Calculation
 
 **MIT License**
 
@@ -27,210 +27,231 @@ SOFTWARE.
 
 ## Overview
 
-This document summarises the implementation of shear centre calculation and the 6×6 constitutive matrix `D` for Timoshenko beam sections. The work extends an existing Fortran 90/95 tool (fixed format `.f`) that reads UNV meshes and computes cross-sectional properties including the torsional constant `J` via finite element method.
+This document describes the finite element implementation for calculating the **torsional constant `J`** of arbitrary beam cross-sections. The method solves Prandtl's membrane analogy using Poisson's equation on a 2D triangular mesh read from UNV format.
 
 **Repository:** https://github.com/brunozilli/beam_section_J
 
 **Authors:** Bruno Zilli & DeepSeek
 
+**File:** `src/torsion_j.f`
+
 ---
 
-## Completed Work
+## Theoretical Background
 
-### 1. Shear Centre Calculation (`src/shear_center.f`)
+### Prandtl's Membrane Analogy
 
-The shear centre `(y_s, z_s)` is computed by solving two Poisson problems on the same finite element mesh used for the torsional constant `J`.
-
-#### Theoretical Background
-
-For a beam cross-section subjected to shear forces `V_y` and `V_z`, the shear centre is the point where an applied shear force produces no twisting moment. The location is found by solving:
-
-| Case | Condition | Right-hand side `f` | Result |
-|------|-----------|---------------------|--------|
-| 1 | `V_y = 1, V_z = 0` | `f = z` | `M_torque1 = y_s` |
-| 2 | `V_y = 0, V_z = 1` | `f = -y` | `M_torque2 = -z_s` |
-
-The governing equation is Poisson's equation:
-∇²φ = f
+For a beam under torsion, the stress function `φ(x,y)` satisfies Poisson's equation:
+∂²φ/∂x² + ∂²φ/∂y² = -2Gθ
 
 text
 
-with Dirichlet boundary conditions `φ = 0` on the boundary of the cross-section.
+where:
+- `G` is the shear modulus
+- `θ` is the twist angle per unit length
 
-#### Finite Element Formulation
-
-**Stiffness matrix `K`:** Same as for the torsion problem:
-K(i,j) = ∫_Ω (∇N_i · ∇N_j) dΩ
-
-text
-
-where `N_i` are linear shape functions for triangular elements.
-
-**Right-hand side vector `RHS`:** For each case:
-RHS(i) = ∫_Ω N_i · f dΩ
+By setting `φ = Gθ ψ`, the equation simplifies to:
+∇²ψ = -2
 
 text
 
-**Solution:** The linear system `K·φ = RHS` is solved using LAPACK routine `DPOSV` (for symmetric positive definite matrices).
+with boundary condition `ψ = 0` on the cross-section boundary.
 
-**Torque calculation:**
-M_torque = ∫_Ω φ dΩ
+### Torsional Constant J
 
-text
-
-**Shear centre coordinates:**
-y_s = M_torque1
-z_s = -M_torque2
+The torsional constant `J` is related to the stress function by:
+J = 2 ∫_Ω ψ dΩ
 
 text
 
-#### Implementation Details
+Once `ψ` is computed via FEM, `J` is obtained by integrating `ψ` over the cross-sectional area.
+
+---
+
+## Finite Element Formulation
+
+### Mesh and Element Type
 
 - **Element type:** 3-node linear triangle
-- **Integration:** One-point (centroid) integration for RHS; exact integration for stiffness matrix (constant gradient over element)
-- **Boundary condition identification:** Nodes with fewer than 3 adjacent elements are considered boundary nodes
-- **Solver:** LAPACK `DPOSV` (Cholesky factorisation for SPD matrices)
+- **Degrees of freedom:** One value of `ψ` per node
+- **Boundary condition:** `ψ = 0` on all boundary nodes
 
-#### Subroutines in `shear_center.f`
+### Stiffness Matrix Assembly
 
-| Subroutine | Description |
-|------------|-------------|
-| `compute_shear_center` | Main routine: assembles K, solves for both cases, computes y_s, z_s |
-| `find_boundary_nodes` | Identifies boundary nodes by counting adjacent elements |
+For each triangular element, the element stiffness matrix `Ke(3,3)` is computed as:
+Ke(i,j) = ∫_Ω (∇N_i · ∇N_j) dΩ
 
-#### Input/Output
+text
 
-**Input:**
-- `nn` - number of nodes
-- `ne` - number of elements
-- `nodes(nn,2)` - nodal coordinates (y, z)
-- `elements(ne,3)` - element connectivity
+where `N_i` are linear shape functions.
 
-**Output:**
-- `y_s` - shear centre y-coordinate
-- `z_s` - shear centre z-coordinate
+For a linear triangle, the gradient is constant over the element:
+Ke(i,j) = A_e · (∇N_i · ∇N_j)
 
----
+text
 
-### 2. Constitutive Matrix D(6,6) (`src/build_D_full.f`)
+where `A_e` is the element area.
 
-The 6×6 constitutive matrix for a Timoshenko beam element relates generalised strains to generalised forces:
-[F] = [D] · [ε]
+#### Shape Function Derivatives
+
+For a triangle with vertices `(y1,z1)`, `(y2,z2)`, `(y3,z3)`:
+∇N1 = ( (z2-z3)/detJ, (y3-y2)/detJ )
+∇N2 = ( (z3-z1)/detJ, (y1-y3)/detJ )
+∇N3 = ( (z1-z2)/detJ, (y2-y1)/detJ )
 
 text
 
 where:
-- `F = [N, V_y, V_z, M_x, M_z, M_y]^T` (axial force, shear forces, torque, bending moments)
-- `ε = [ε_x, γ_y, γ_z, φ_x, κ_z, κ_y]^T` (axial strain, shear strains, twist, curvatures)
-
-#### Matrix Definition
-
-The matrix `D` is symmetric and has the following non-zero entries:
-
-| D(i,j) | Expression | Description |
-|--------|------------|-------------|
-| D(1,1) | `E·A` | Axial stiffness |
-| D(2,2) | `k_y·G·A` | Shear stiffness in y-direction |
-| D(3,3) | `k_z·G·A` | Shear stiffness in z-direction |
-| D(4,4) | `G·J` | Torsional stiffness |
-| D(5,5) | `E·I_z` | Bending stiffness about z-axis |
-| D(6,6) | `E·I_y` | Bending stiffness about y-axis |
-| D(1,5) | `-E·A·e_z` | Axial-bending coupling (z-offset) |
-| D(1,6) | `E·A·e_y` | Axial-bending coupling (y-offset) |
-| D(5,6) | `E·I_yz` | Bending-bending coupling (product of inertia) |
-
-where:
-e_y = y_s - y_c
-e_z = z_s - z_c
+detJ = (y2-y1)*(z3-z1) - (y3-y1)*(z2-z1)
+A_e = |detJ| / 2
 
 text
-are the offsets between shear centre `(y_s, z_s)` and centroid `(y_c, z_c)`.
 
-#### Packing for CalculiX (`elcon` vector)
+### Right-Hand Side Assembly
 
-For use with CalculiX generalised beam elements, the matrix is packed into a 12-element vector:
+The right-hand side vector `RHS` comes from the constant forcing term `f = -2`:
+RHS(i) = ∫_Ω N_i · (-2) dΩ = -2 · A_e / 3
 
-| elcon index | D(i,j) | Description |
-|-------------|--------|-------------|
-| 1 | D(1,1) | Axial stiffness |
-| 2 | D(2,2) | Shear y stiffness |
-| 3 | D(3,3) | Shear z stiffness |
-| 4 | D(4,4) | Torsional stiffness |
-| 5 | D(5,5) | Bending Iz stiffness |
-| 6 | D(6,6) | Bending Iy stiffness |
-| 7 | D(1,5) | Axial-bending Iz coupling |
-| 8 | D(1,6) | Axial-bending Iy coupling |
-| 9 | D(5,6) | Bending-bending coupling (Iyz) |
-| 10 | D(1,2) | (Typically zero) |
-| 11 | D(1,3) | (Typically zero) |
-| 12 | D(2,3) | (Typically zero) |
+text
 
-#### Subroutines in `build_D_full.f`
+for each node of the element (lumped integration).
 
-| Subroutine | Description |
-|------------|-------------|
-| `build_D_matrix` | Constructs the full 6×6 D matrix from section properties |
-| `pack_elcon` | Packs D(6,6) into elcon(12) for CalculiX |
-| `zero_matrix` | Utility to initialise a matrix to zero |
+### Boundary Conditions
 
----
+Dirichlet boundary conditions `ψ = 0` are applied on all boundary nodes. The implementation:
 
-### 3. Database Extension (`src/section_database.f`)
+1. Identifies boundary nodes (nodes with fewer than 3 adjacent elements)
+2. Modifies the global stiffness matrix:
+   - Sets row and column to zero
+   - Sets diagonal to 1.0
+3. Sets corresponding RHS entries to 0.0
 
-The section database has been extended to include the following fields:
+### Linear System Solution
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `y_s`, `z_s` | `double precision` | Shear centre coordinates |
-| `k_y`, `k_z` | `double precision` | Shear correction factors (default = 1.0) |
-| `D(6,6)` | `double precision` | Full constitutive matrix |
-| `elcon(12)` | `double precision` | Packed vector for CalculiX |
+The system `K·ψ = RHS` is solved using LAPACK routine `DPOSV`, which is optimised for symmetric positive definite matrices:
 
----
+```fortran
+call DPOSV('U', n_eq, 1, K, n_eq, RHS, n_eq, info)
+'U' indicates the upper triangular part of K is stored
 
-## Fortran Programming Notes
+n_eq is the number of equations (equal to number of nodes)
 
-### Fixed Format Convention
+On exit, RHS contains the solution ψ
 
-All source files use traditional Fortran fixed format (`.f` extension):
+Torsional Constant Calculation
+After obtaining ψ at each node, J is computed by numerical integration:
 
-| Column(s) | Usage |
-|-----------|-------|
-| 1 | `c` or `*` for comment lines |
-| 2-5 | Statement label (numeric, optional) |
-| 6 | Continuation character (`&` or any non-space, non-zero) |
-| 7-72 | Fortran code or comments |
-| 73+ | Ignored by compiler |
+text
+J = 2 ∫_Ω ψ dΩ = 2 · Σ_e ( A_e · (ψ1 + ψ2 + ψ3)/3 )
+where the sum is over all elements.
 
-### Code Style
+Implementation Details
+Subroutines in torsion_j.f
+Subroutine	Description
+compute_torsional_J	Main routine: assembles K and RHS, solves system, computes J
+find_boundary_nodes	Identifies boundary nodes by counting adjacent elements
+stiffness_matrix_triangle	Computes Ke(3,3) for a single triangular element
+rhs_triangle	Computes Re(3) for a single triangular element
+Main Algorithm
+text
+1. Read mesh (nodes, elements)
+2. Identify boundary nodes
+3. Allocate K(nn, nn) and RHS(nn)
+4. Initialise K and RHS to zero
+5. For each element:
+   a. Compute Ke(3,3)
+   b. Assemble Ke into global K
+   c. Compute Re(3) from f = -2
+   d. Assemble Re into global RHS
+6. Apply boundary conditions (ψ = 0 on boundary)
+7. Solve K·ψ = RHS using DPOSV
+8. Compute J = 2 * Σ( A_e * average(ψ) )
+9. Deallocate memory
+Boundary Node Detection
+A node is considered a boundary node if it belongs to fewer than 3 elements. For a well-formed 2D triangular mesh:
 
-- **British English** in comments (colour, centre, licence, etc.)
-- **Uppercase** for keywords (optional but traditional)
-- **Explicit `implicit none`** at the beginning of each subroutine
-- **LAPACK** used for linear algebra (`DPOSV` for symmetric positive definite systems)
+Interior nodes are shared by ≥ 3 elements
 
-### Compilation
+Boundary nodes are shared by 1 or 2 elements
 
-The `Makefile` includes rules for fixed format:
+fortran
+do i = 1, nn
+   if (node_count(i) .lt. 3) then
+      n_boundary = n_boundary + 1
+      boundary_nodes(n_boundary) = i
+   end if
+end do
+Integration with Existing Code
+Mesh Reading (read_section_mesh_unv.f)
+The UNV reader extracts:
 
-```makefile
+Node coordinates (y, z)
+
+Triangular element connectivity
+
+Mesh Validation (mesh_checker.f)
+Validates and optionally corrects:
+
+Element orientation (ensures positive area)
+
+Detects degenerate elements (zero area)
+
+Section Properties (compute_section_properties.f)
+Computes:
+
+Cross-sectional area A
+
+Centroid coordinates (y_c, z_c)
+
+Second moments of area I_y, I_z, I_yz
+
+Database (section_database.f)
+Stores computed properties including J for multiple sections.
+
+Fortran Programming Notes
+Fixed Format Convention
+All source files use traditional Fortran fixed format (.f extension):
+
+Column(s)	Usage
+1	c or * for comment lines
+2-5	Statement label (numeric, optional)
+6	Continuation character (& or any non-space, non-zero)
+7-72	Fortran code or comments
+73+	Ignored by compiler
+Code Style
+British English in comments (colour, centre, licence, etc.)
+
+Explicit implicit none at the beginning of each subroutine
+
+LAPACK for linear algebra (DPOSV for SPD systems)
+
+Compilation
+The Makefile includes rules for fixed format:
+
+makefile
 FFLAGS = -ffixed-form -Wall -O2
 LDFLAGS = -llapack -lblas
 Example Compilation and Test
 bash
 make clean
-make test_shear_center
-./test_shear_center
-Expected Verification (HEB200 Section)
-For a doubly symmetric section like HEB200:
+make test_torsion
+./test_torsion
+Verification Examples
+Rectangular Section (10×20)
+For a rectangle with dimensions b = 10, h = 20:
 
-y_s ≈ y_c (shear centre coincides with centroid)
+Method	J
+Analytical (thin-wall approx)	J ≈ b·h³/3 = 10·8000/3 = 26666.7
+Analytical (exact)	J = b·h³·[1/3 - 0.21·(b/h)·(1 - b⁴/(12h⁴))] ≈ 26400
+FEM (fine mesh)	Should converge to exact value
+Circular Section (diameter 10)
+For a circle with radius R = 5:
 
-z_s ≈ z_c
-
-I_yz ≈ 0 (product of inertia is zero)
-
-Matrix D is block-diagonal (no coupling terms)
+Method	J
+Analytical	J = π·R⁴/2 = π·625/2 = 981.75
+FEM (fine mesh)	Should converge to analytical value
+HEB200 (Steel Section)
+For a standard HEB200 profile, the FEM result should match published values from Eurocode or steel tables.
 
 File Structure
 text
@@ -238,7 +259,7 @@ beam_section_J/
 ├── LICENSE
 ├── Makefile
 ├── THEORY.md
-├── SHEAR_CENTER_IMPLEMENTATION.md   (this file)
+├── TORSIONAL_CONSTANT_J_FEM.md    (this file)
 ├── meshes/
 │   ├── circle_dia10.unv
 │   ├── HEB200_mm.unv
@@ -248,17 +269,21 @@ beam_section_J/
 │   ├── mesh_checker.f
 │   ├── read_section_mesh_unv.f
 │   ├── section_database.f
-│   ├── torsion_j.f
-│   ├── shear_center.f                (new)
-│   └── build_D_full.f                (new)
+│   └── torsion_j.f
 └── test/
-    ├── test_torsion.f
-    └── test_shear_center.f           (to be created)
-Next Steps (Optional)
-Implement test_shear_center.f to validate the implementation on HEB200 mesh
+    └── test_torsion.f
+Next Steps (Future Work)
+Shear centre calculation (y_s, z_s) using the same FEM framework with modified RHS (f = z and f = -y)
 
-Add advanced shear correction factor calculation (k_y, k_z) via FEM
+Constitutive matrix D(6,6) for Timoshenko beam elements
 
-Integrate shear centre calculation into main program
+Shear correction factors (k_y, k_z) via advanced FEM techniques
 
-Add support for additional mesh formats
+References
+Prandtl, L. (1903). Zur torsion von prismatischen stäben
+
+Timoshenko, S. P. & Goodier, J. N. (1970). Theory of Elasticity
+
+Cook, R. D. et al. (2002). Concepts and Applications of Finite Element Analysis
+
+LAPACK User's Guide (DPOSV documentation)
