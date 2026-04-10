@@ -1,4 +1,58 @@
+# BEAM SECTION TOOL - Compute cross-section properties from UNV meshes
 
+**Tool for calculating geometric properties J of beam cross-sections from UNV mesh files**
+
+> ⚠️ **STATUS: Under active development**  
+> This project is in development and testing phase. Not all features are fully validated. Use with caution in production environments.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Fortran](https://img.shields.io/badge/Fortran-77-blue.svg)](https://fortran-lang.org/)
+
+## Authors
+- **Bruno Zilli** - Project coordination and validation
+- **DeepSeek** - AI-assisted development and debugging
+
+## License
+
+**MIT License**
+
+Copyright (c) 2024 Bruno Zilli & DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Disclaimer
+
+**This software is provided "AS IS" without warranty of any kind.**
+
+- The authors make no representations or warranties regarding the accuracy,
+  reliability, or completeness of the software.
+- The authors shall not be liable for any direct, indirect, incidental,
+  special, exemplary, or consequential damages arising from the use of this
+  software.
+- Users are solely responsible for verifying the results before using them
+  in engineering applications.
+- The software is intended for research and educational purposes only.
+- Commercial use requires independent validation.
+
+---
+
+## Project Structure
 # Torsional Constant J: Theory and Implementation
 
 ## Directory Structure
